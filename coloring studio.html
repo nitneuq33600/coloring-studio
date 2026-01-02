@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Coloring Studio</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --panel: #1a1a1a;
+            --primary: #ff0055;
+            --primary-hover: #ff3377;
+            --text: #ffffff;
+            --border: #333;
+            --success: #00e676;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 0;
+            height: 100vh; overflow: hidden;
+            user-select: none;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: 100vh; width: 100vw;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+            overflow-y: auto; z-index: 20;
+        }
+
+        .logo h1 { margin: 0; font-size: 1.4rem; text-align: center; letter-spacing: 1px; }
+        .logo span { color: var(--primary); font-weight: 800; }
+
+        .control-group {
+            background: #121212; padding: 12px; border-radius: 8px;
+            border: 1px solid #2a2a2a;
+        }
+        .control-group label {
+            display: flex; justify-content: space-between; font-size: 0.85rem;
+            color: #ccc; margin-bottom: 8px; align-items: center;
+        }
+
+        /* NOUVEAU DESIGN DROP ZONE */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            background: #151515;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #888;
+        }
+        .drop-zone:hover, .drop-zone.active {
+            border-color: var(--primary);
+            background: #222;
+            color: white;
+        }
+        .drop-zone i { font-size: 24px; font-style: normal; }
+        .drop-zone span { font-size: 0.9rem; font-weight: 600; }
+        .drop-zone small { font-size: 0.75rem; opacity: 0.7; }
+
+        input[type="range"] {
+            width: 100%; height: 4px; background: #333; border-radius: 2px;
+            -webkit-appearance: none; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--primary); cursor: pointer;
+        }
+
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: 6px;
+            font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .btn-primary { background: var(--primary); color: white; transition: 0.2s; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+        .btn-group { display: flex; gap: 5px; }
+        .btn-option {
+            flex: 1; padding: 8px; background: #222; border: 1px solid #333;
+            color: white; border-radius: 4px; cursor: pointer; font-size: 0.8rem; text-align: center;
+        }
+        .btn-option.active { background: var(--primary); border-color: var(--primary); }
+
+        /* TOGGLE SWITCH DESIGN */
+        .toggle-switch {
+            position: relative; width: 44px; height: 24px;
+            background: #333; border-radius: 12px; cursor: pointer;
+            transition: 0.3s;
+        }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 20px; height: 20px; background: white;
+            border-radius: 50%; transition: 0.3s;
+        }
+        input[type="checkbox"]:checked + .toggle-switch { background: var(--success); }
+        input[type="checkbox"]:checked + .toggle-switch::after { transform: translateX(20px); }
+        input[type="checkbox"] { display: none; }
+
+        /* CANVAS AREA */
+        .canvas-area {
+            display: flex; flex-direction: column;
+            background: #0f0f0f; position: relative; overflow: hidden;
+        }
+
+        .canvas-toolbar {
+            height: 50px; background: var(--panel); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 15px; gap: 10px;
+            z-index: 10;
+        }
+
+        .tool-btn {
+            padding: 6px 12px; background: #222; border: 1px solid #333;
+            border-radius: 4px; color: white; cursor: pointer; font-size: 0.85rem;
+        }
+        .tool-btn.active { background: var(--primary); border-color: var(--primary); }
+
+        /* BOUTON SAVE (Toolbar) - ROSE */
+        .btn-save {
+            background: var(--primary); color: #fff; border: 1px solid var(--primary); 
+            padding: 6px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;
+            display: flex; gap: 5px; align-items: center; font-size: 0.85rem; transition: 0.2s;
+        }
+        .btn-save:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+        .btn-save:disabled { background: #222; color: #555; border-color: #333; cursor: not-allowed; }
+
+        .canvas-container {
+            flex: 1; position: relative; overflow: hidden;
+            cursor: none; 
+            background-color: #151515;
+            background-image: 
+                linear-gradient(45deg, #1f1f1f 25%, transparent 25%),
+                linear-gradient(-45deg, #1f1f1f 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #1f1f1f 75%),
+                linear-gradient(-45deg, transparent 75%, #1f1f1f 75%);
+            background-size: 20px 20px;
+        }
+        .canvas-container.bg-white { background: white; background-image: none; }
+
+        #mainCanvas {
+            position: absolute; left: 0; top: 0;
+            transform-origin: 0 0; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            z-index: 1;
+        }
+
+        #analysisOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+        }
+        .analysis-line {
+            stroke: #ff0055; stroke-width: 2; stroke-linecap: round;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .analysis-line.visible { opacity: 1; }
+
+        .custom-cursor {
+            position: absolute; top: 0; left: 0;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%; pointer-events: none;
+            transform: translate(-50%, -50%); z-index: 999;
+            display: none; box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            transition: width 0.1s, height 0.1s, border-color 0.2s;
+        }
+        .custom-cursor::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 2px; height: 2px; background: red;
+            transform: translate(-50%, -50%); border-radius: 50%;
+        }
+
+        .center-preview {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            border: 2px solid var(--primary); background: rgba(255, 0, 85, 0.1);
+            border-radius: 50%; pointer-events: none; z-index: 9999;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .center-preview.visible { opacity: 1; }
+        .center-preview::after {
+            content: attr(data-val); position: absolute; top: 105%; left: 50%;
+            transform: translateX(-50%); background: black; color: white;
+            padding: 2px 5px; font-size: 10px; border-radius: 3px;
+        }
+
+        .status-indicators {
+            position: absolute; top: 10px; right: 10px;
+            display: flex; gap: 5px; pointer-events: none; z-index: 100;
+        }
+        .indicator {
+            background: rgba(0,0,0,0.7); color: #fff;
+            padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;
+            display: none; border: 1px solid var(--primary);
+        }
+        .indicator.active { display: block; }
+
+        .loader {
+            width: 16px; height: 16px; border: 2px solid #333;
+            border-top: 2px solid white; border-radius: 50%;
+            animation: spin 1s linear infinite; display: none; margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="centerPreview" class="center-preview"></div>
+
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="logo">
+            <h1>COLORING <span>STUDIO</span></h1>
+        </div>
+
+        <!-- ZONE DRAG & DROP REDESIGNÉE -->
+        <div class="drop-zone" id="dropZone">
+            <i>📂</i>
+            <span>Charger une image</span>
+            <small>Glissez-déposez ou cliquez</small>
+            <input type="file" id="fileInput" accept="image/*" hidden>
+        </div>
+
+        <div class="control-group">
+            <label>Facteur Upscale</label>
+            <div class="btn-group">
+                <div class="btn-option" data-scale="2">X2</div>
+                <div class="btn-option active" data-scale="4">X4</div>
+                <div class="btn-option" data-scale="8">X8</div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Lissage Image</label>
+            <div class="btn-group">
+                <div class="btn-option" data-blur="0">Non</div>
+                <!-- PAR DÉFAUT : BAS (1) -->
+                <div class="btn-option active" data-blur="1">Bas</div>
+                <div class="btn-option" data-blur="2">Moy</div>
+                <div class="btn-option" data-blur="4">Fort</div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <!-- PAR DÉFAUT : 130 -->
+            <label>Seuil Noir <span id="valThresh">130</span></label>
+            <input type="range" id="threshRange" min="50" max="230" value="130">
+        </div>
+
+        <div class="control-group" style="display:flex; align-items:center;">
+            <label style="margin:0; flex:1; cursor:pointer;" for="whiteBackground">Voir Fond Blanc</label>
+            <input type="checkbox" id="whiteBackground">
+            <label for="whiteBackground" class="toggle-switch"></label>
+        </div>
+        
+        <button class="btn btn-primary" id="processBtn" disabled style="margin-top:10px; margin-bottom:15px; font-size:1rem; padding:15px;">
+            <div class="loader" id="loader"></div>
+            <span id="processText">TRAITER L'IMAGE</span>
+        </button>
+
+        <div class="control-group">
+            <label>Lissage Trait (Dessin)</label>
+            <div class="btn-group">
+                <div class="btn-option" data-smooth="0">OFF</div>
+                <div class="btn-option" data-smooth="1">1</div>
+                <!-- PAR DÉFAUT : 2 -->
+                <div class="btn-option active" data-smooth="2">2</div>
+                <div class="btn-option" data-smooth="3">3</div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Taille Brosse <span id="valBrush">3</span>px</label>
+            <input type="range" id="brushSize" min="1" max="100" value="3">
+        </div>
+
+        <div class="control-group">
+            <label>Rayon Analyse <span id="valAnalysis">20</span>px</label>
+            <input type="range" id="analyzerRadius" min="5" max="100" value="20">
+        </div>
+
+        <div style="margin-top:auto; font-size:11px; color:#666; line-height:1.4;">
+            <strong>W</strong>: Précision | <strong>X+Scroll</strong>: Taille<br>
+            <strong>D</strong>: Dessin | <strong>G</strong>: Gomme | <strong>A</strong>: Analyse<br>
+            <strong>H/V</strong>: Axe | <strong>Glisser/Déposer</strong> image
+        </div>
+    </aside>
+
+    <main class="canvas-area">
+        <div class="canvas-toolbar">
+            <button class="tool-btn active" data-tool="draw">✏️ Dessin (D)</button>
+            <button class="tool-btn" data-tool="erase">🧹 Gomme (G)</button>
+            <button class="tool-btn" data-tool="analyze">🔍 Analyser (A)</button>
+            <div style="flex:1"></div>
+            <button class="tool-btn" id="undoBtn">↶</button>
+            <button class="tool-btn" id="clearBtn">🗑️</button>
+            <button class="tool-btn" id="fitBtn">⛶</button>
+            <!-- Bouton Save Rose -->
+            <button class="btn-save" id="downloadBtn" disabled>💾 SAUVEGARDER</button>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="mainCanvas"></canvas>
+            
+            <svg id="analysisOverlay">
+                <line id="analysisLine" class="analysis-line" x1="0" y1="0" x2="0" y2="0" />
+            </svg>
+            
+            <div id="customCursor" class="custom-cursor"></div>
+            
+            <div class="status-indicators">
+                <div id="indSize" class="indicator">SIZE (X)</div>
+                <div id="indPrecision" class="indicator">PRECISION (W)</div>
+                <div id="indH" class="indicator">AXE H</div>
+                <div id="indV" class="indicator">AXE V</div>
+            </div>
+            
+            <div style="position:absolute; bottom:10px; right:10px; font-size:12px; color:#555; pointer-events:none;" id="zoomInfo">Zoom: 100%</div>
+        </div>
+    </main>
+</div>
+
+<script>
+// ==================== STATE ====================
+const state = {
+    sourceImg: null,
+    scale: 4,
+    tool: 'draw',
+    isDrawing: false,
+    
+    zoom: 1,
+    pan: { x: 0, y: 0 },
+    
+    keys: { w: false, h: false, v: false, x: false },
+    
+    rawMouse: null, 
+    virtualMouse: { x: 0, y: 0 }, 
+    axisLockVal: null,
+
+    strokePoints: [],
+    
+    // NOUVEAUX DÉFAUTS
+    imgBlur: 1,      // Bas
+    smoothLevel: 2,  // 2
+    brushSize: 3,
+    analyzeRadius: 20,
+    threshold: 130,  // 130
+    whiteBg: false,
+    
+    history: [],
+    historyStep: -1
+};
+
+// ==================== DOM ELEMENTS ====================
+const els = {
+    container: document.getElementById('canvasContainer'),
+    canvas: document.getElementById('mainCanvas'),
+    ctx: document.getElementById('mainCanvas').getContext('2d', { willReadFrequently: true }),
+    cursor: document.getElementById('customCursor'),
+    centerPreview: document.getElementById('centerPreview'),
+    zoomInfo: document.getElementById('zoomInfo'),
+    analysisLine: document.getElementById('analysisLine'),
+    
+    indSize: document.getElementById('indSize'),
+    indP: document.getElementById('indPrecision'),
+    indH: document.getElementById('indH'),
+    indV: document.getElementById('indV'),
+    
+    dropZone: document.getElementById('dropZone'), // Nouveau dropzone
+    fileInput: document.getElementById('fileInput'),
+    processBtn: document.getElementById('processBtn'),
+    downloadBtn: document.getElementById('downloadBtn'),
+    loader: document.getElementById('loader'),
+    processText: document.getElementById('processText'),
+    brushInput: document.getElementById('brushSize')
+};
+
+let previewTimeout;
+let analysisTimeout;
+
+// ==================== INIT ====================
+function init() {
+    setupEvents();
+    resizeCanvas(800, 600);
+    centerView(800, 600);
+    updateCursorSize();
+}
+
+function resizeCanvas(w, h) {
+    els.canvas.width = w;
+    els.canvas.height = h;
+}
+
+// ==================== EVENTS ====================
+function setupEvents() {
+    // Drag & Drop Global + DropZone Click
+    document.addEventListener('dragover', e => { e.preventDefault(); els.dropZone.classList.add('active'); });
+    document.addEventListener('dragleave', e => { els.dropZone.classList.remove('active'); });
+    document.addEventListener('drop', e => {
+        e.preventDefault();
+        els.dropZone.classList.remove('active');
+        if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+
+    els.dropZone.addEventListener('click', () => els.fileInput.click());
+    els.fileInput.addEventListener('change', e => {
+        if(e.target.files[0]) loadFile(e.target.files[0]);
+    });
+    
+    // Mouse / Zoom / Pan
+    els.container.addEventListener('wheel', handleWheel, { passive: false });
+    els.container.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove); 
+    els.container.addEventListener('mouseenter', (e) => {
+        els.cursor.style.display = 'block';
+        const rect = els.container.getBoundingClientRect();
+        state.rawMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        if(!state.isDrawing) state.virtualMouse = { ...state.rawMouse };
+    });
+    els.container.addEventListener('mouseleave', () => els.cursor.style.display = 'none');
+    window.addEventListener('mouseup', onUp);
+    
+    // Keyboard
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    setupUIControls();
+}
+
+function setupUIControls() {
+    const bindGroup = (sel, key) => {
+        document.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll(sel).forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            state[key] = parseInt(b.dataset[Object.keys(b.dataset)[0]]);
+        }));
+    };
+    bindGroup('[data-scale]', 'scale');
+    bindGroup('[data-blur]', 'imgBlur');
+    bindGroup('[data-smooth]', 'smoothLevel');
+
+    const bindSlider = (id, key, labelId) => {
+        document.getElementById(id).addEventListener('input', e => {
+            state[key] = parseFloat(e.target.value);
+            if(labelId) document.getElementById(labelId).innerText = state[key];
+            if(key === 'brushSize' || key === 'analyzeRadius') {
+                updateCursorSize();
+                showCenterPreview(state[key]);
+            }
+        });
+    };
+    bindSlider('brushSize', 'brushSize', 'valBrush');
+    bindSlider('analyzerRadius', 'analyzeRadius', 'valAnalysis');
+    bindSlider('threshRange', 'threshold', 'valThresh');
+
+    document.getElementById('whiteBackground').addEventListener('change', e => {
+        state.whiteBg = e.target.checked;
+        els.container.classList.toggle('bg-white', state.whiteBg);
+    });
+
+    document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+
+    els.processBtn.addEventListener('click', processImage);
+    document.getElementById('undoBtn').addEventListener('click', () => undo());
+    document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+    document.getElementById('fitBtn').addEventListener('click', fitToScreen);
+    els.downloadBtn.addEventListener('click', downloadImage);
+}
+
+function setTool(toolName) {
+    state.tool = toolName;
+    document.querySelectorAll('[data-tool]').forEach(b => {
+        b.classList.toggle('active', b.dataset.tool === toolName);
+    });
+    updateCursorSize();
+}
+
+function loadFile(file) {
+    const r = new FileReader();
+    r.onload = ev => {
+        const i = new Image();
+        i.onload = () => {
+            state.sourceImg = i; 
+            resizeCanvas(i.width, i.height); 
+            els.ctx.drawImage(i,0,0);
+            
+            // Initialisation de l'historique ICI
+            state.history = [];
+            state.historyStep = -1;
+            saveHistory(); 
+            
+            fitToScreen(); 
+            els.processBtn.disabled=false;
+            // Update dropzone text
+            els.dropZone.querySelector('span').innerText = file.name;
+        }; i.src = ev.target.result;
+    }; r.readAsDataURL(file);
+}
+
+// ==================== KEYBOARD LOGIC ====================
+function handleKeyDown(e) {
+    const key = e.key.toLowerCase();
+    
+    if (key === 'z' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault(); undo(); return;
+    }
+
+    if (key === 'd') setTool('draw');
+    if (key === 'g') setTool('erase');
+    if (key === 'a') setTool('analyze'); 
+
+    if (key === 'w' && !state.keys.w) { state.keys.w = true; els.indP.classList.add('active'); }
+    if (key === 'x' && !state.keys.x) { state.keys.x = true; els.indSize.classList.add('active'); }
+    if (key === 'h' && !state.keys.h) { 
+        state.keys.h = true; els.indH.classList.add('active');
+        if(state.isDrawing) state.axisLockVal = state.virtualMouse.y;
+    }
+    if (key === 'v' && !state.keys.v) { 
+        state.keys.v = true; els.indV.classList.add('active');
+        if(state.isDrawing) state.axisLockVal = state.virtualMouse.x;
+    }
+}
+
+function handleKeyUp(e) {
+    const key = e.key.toLowerCase();
+    if (key === 'w') { state.keys.w = false; els.indP.classList.remove('active'); }
+    if (key === 'x') { state.keys.x = false; els.indSize.classList.remove('active'); }
+    if (key === 'h') { 
+        state.keys.h = false; els.indH.classList.remove('active'); 
+        if(!state.isDrawing) state.axisLockVal = null;
+    }
+    if (key === 'v') { 
+        state.keys.v = false; els.indV.classList.remove('active');
+        if(!state.isDrawing) state.axisLockVal = null;
+    }
+}
+
+// ==================== MOUSE LOGIC ====================
+function updateVirtualPosition(e) {
+    const rect = els.container.getBoundingClientRect();
+    const realX = e.clientX - rect.left;
+    const realY = e.clientY - rect.top;
+    
+    if (!state.rawMouse) {
+        state.rawMouse = { x: realX, y: realY };
+        state.virtualMouse = { x: realX, y: realY };
+        return;
+    }
+
+    const dx = realX - state.rawMouse.x;
+    const dy = realY - state.rawMouse.y;
+    
+    state.rawMouse.x = realX;
+    state.rawMouse.y = realY;
+
+    const factor = state.keys.w ? 0.33 : 1.0;
+    state.virtualMouse.x += dx * factor;
+    state.virtualMouse.y += dy * factor;
+
+    if (state.keys.h && state.axisLockVal !== null) state.virtualMouse.y = state.axisLockVal;
+    else if (state.keys.v && state.axisLockVal !== null) state.virtualMouse.x = state.axisLockVal;
+
+    els.cursor.style.left = state.virtualMouse.x + 'px';
+    els.cursor.style.top = state.virtualMouse.y + 'px';
+}
+
+function getVirtualCanvasPos() {
+    return {
+        x: (state.virtualMouse.x - state.pan.x) / state.zoom,
+        y: (state.virtualMouse.y - state.pan.y) / state.zoom
+    };
+}
+
+// ==================== DRAWING (OPTIMIZED) ====================
+function onDown(e) {
+    if(e.button !== 0) return;
+    
+    if(state.keys.h) state.axisLockVal = state.virtualMouse.y;
+    if(state.keys.v) state.axisLockVal = state.virtualMouse.x;
+
+    const pos = getVirtualCanvasPos();
+
+    if(state.tool === 'analyze') {
+        analyzeStroke(pos);
+        return;
+    }
+
+    state.isDrawing = true;
+    state.strokePoints = [pos];
+    // OPTIMISATION: Pas de sauvegarde historique ici (freeze évité)
+
+    els.ctx.lineCap = 'round'; els.ctx.lineJoin = 'round';
+    els.ctx.lineWidth = state.brushSize;
+    els.ctx.strokeStyle = state.tool === 'erase' ? '#FFFFFF' : '#000000';
+    els.ctx.globalCompositeOperation = state.tool === 'erase' ? 'destination-out' : 'source-over';
+    
+    els.ctx.globalAlpha = (state.smoothLevel > 0 && state.tool === 'draw') ? 0.5 : 1.0;
+    els.ctx.beginPath(); els.ctx.moveTo(pos.x, pos.y); els.ctx.lineTo(pos.x, pos.y); els.ctx.stroke();
+}
+
+function onMove(e) {
+    updateVirtualPosition(e);
+    if(!state.isDrawing) return;
+    const pos = getVirtualCanvasPos();
+    state.strokePoints.push(pos);
+    const prev = state.strokePoints[state.strokePoints.length-2];
+    els.ctx.beginPath(); els.ctx.moveTo(prev.x, prev.y); els.ctx.lineTo(pos.x, pos.y); els.ctx.stroke();
+}
+
+function onUp() {
+    state.axisLockVal = null;
+    if(!state.isDrawing) return;
+    state.isDrawing = false;
+    
+    // LISSAGE
+    if(state.tool === 'draw' && state.smoothLevel > 0 && state.strokePoints.length > 2) {
+        // Restaurer l'état avant le trait "brouillon"
+        if(state.history[state.historyStep]) {
+            els.ctx.putImageData(state.history[state.historyStep], 0, 0);
+        }
+
+        const smoothed = getSmoothedPoints(state.strokePoints, state.smoothLevel);
+        els.ctx.globalAlpha = 1.0;
+        els.ctx.beginPath(); els.ctx.moveTo(smoothed[0].x, smoothed[0].y);
+        for (let i = 1; i < smoothed.length - 1; i++) {
+            const cp = smoothed[i];
+            const next = smoothed[i + 1];
+            const mid = { x: (cp.x + next.x) / 2, y: (cp.y + next.y) / 2 };
+            els.ctx.quadraticCurveTo(cp.x, cp.y, mid.x, mid.y);
+        }
+        els.ctx.lineTo(smoothed[smoothed.length-1].x, smoothed[smoothed.length-1].y);
+        els.ctx.stroke();
+    }
+    els.ctx.globalAlpha = 1.0;
+
+    // SAUVEGARDE FINALE (Fluidité préservée pendant le trait)
+    saveHistory();
+}
+
+// ==================== ZOOM / PAN / SIZE ====================
+function handleWheel(e) {
+    e.preventDefault();
+    if(state.keys.x) {
+        const delta = -e.deltaY * 0.1;
+        let newSize = state.brushSize + delta;
+        newSize = Math.max(1, Math.min(200, newSize));
+        state.brushSize = newSize;
+        els.brushInput.value = newSize;
+        document.getElementById('valBrush').innerText = Math.round(newSize);
+        updateCursorSize();
+        showCenterPreview(newSize);
+        return;
+    }
+    if(e.ctrlKey) {
+        const rect = els.container.getBoundingClientRect();
+        const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+        const worldX = (mx - state.pan.x) / state.zoom;
+        const worldY = (my - state.pan.y) / state.zoom;
+        const delta = -e.deltaY;
+        const factor = Math.exp(delta * 0.01);
+        const newZoom = Math.max(0.1, Math.min(50, state.zoom * factor));
+        state.pan.x = mx - worldX * newZoom; state.pan.y = my - worldY * newZoom;
+        state.zoom = newZoom;
+    } else {
+        state.pan.x -= e.deltaX; state.pan.y -= e.deltaY;
+    }
+    updateTransform();
+}
+
+function updateTransform() {
+    els.canvas.style.transform = `translate3d(${state.pan.x}px, ${state.pan.y}px, 0) scale(${state.zoom})`;
+    els.zoomInfo.innerText = `Zoom: ${Math.round(state.zoom*100)}%`;
+    updateCursorSize();
+}
+
+// ==================== ANALYSE ====================
+function analyzeStroke(pos) {
+    const r = state.analyzeRadius;
+    const imgData = els.ctx.getImageData(pos.x - r, pos.y - r, r*2, r*2);
+    const data = imgData.data;
+    const size = r*2; const cx = r; const cy = r;
+    const cIdx = (cy * size + cx) * 4;
+    
+    if(data[cIdx+3] < 50 || data[cIdx] > 100) { flashCursor('red'); return; }
+    
+    let minWidth = 9999;
+    let bestLine = null;
+    
+    for(let angle = 0; angle < 180; angle += 5) {
+        const rad = angle * (Math.PI / 180);
+        const dx = Math.cos(rad); const dy = Math.sin(rad);
+        let d1=0; for(let d=0; d<r; d++) {
+            const px=Math.floor(cx+dx*d), py=Math.floor(cy+dy*d), i=(py*size+px)*4;
+            if(data[i+3]<50 || data[i]>150) break; d1=d;
+        }
+        let d2=0; for(let d=0; d<r; d++) {
+            const px=Math.floor(cx-dx*d), py=Math.floor(cy-dy*d), i=(py*size+px)*4;
+            if(data[i+3]<50 || data[i]>150) break; d2=d;
+        }
+        const w = d1+d2;
+        if(w < minWidth && w>0) { minWidth=w; bestLine={x1:cx-dx*d2, y1:cy-dy*d2, x2:cx+dx*d1, y2:cy+dy*d1}; }
+    }
+    
+    if(bestLine && minWidth < r*2) {
+        state.brushSize = minWidth; els.brushInput.value = minWidth;
+        document.getElementById('valBrush').innerText = minWidth;
+        showCenterPreview(minWidth); updateCursorSize();
+        
+        els.analysisLine.setAttribute('x1', pos.x-r+bestLine.x1);
+        els.analysisLine.setAttribute('y1', pos.y-r+bestLine.y1);
+        els.analysisLine.setAttribute('x2', pos.x-r+bestLine.x2);
+        els.analysisLine.setAttribute('y2', pos.y-r+bestLine.y2);
+        els.analysisLine.style.strokeWidth = 2 / state.zoom; 
+        els.analysisLine.classList.add('visible');
+        
+        flashCursor('#00e676');
+        
+        clearTimeout(analysisTimeout);
+        analysisTimeout = setTimeout(() => {
+            els.analysisLine.classList.remove('visible');
+        }, 800);
+    } else { flashCursor('red'); }
+}
+
+// ==================== HELPERS ====================
+function getSmoothedPoints(points, level) {
+    if (points.length < 3) return points;
+    let iterations = level * 2; let current = points;
+    for(let k=0; k<iterations; k++) {
+        let next = [current[0]];
+        for(let i=1; i<current.length-1; i++) {
+            next.push({x: (current[i-1].x + current[i].x + current[i+1].x)/3, y: (current[i-1].y + current[i].y + current[i+1].y)/3});
+        } next.push(current[current.length-1]); current = next;
+    } return current;
+}
+
+function updateCursorSize() {
+    let radius = (state.tool === 'analyze') ? state.analyzeRadius : state.brushSize / 2;
+    els.cursor.style.borderColor = (state.tool === 'analyze') ? '#00bbff' : 'rgba(255,255,255,0.9)';
+    const visualSize = (radius * 2) * state.zoom;
+    els.cursor.style.width = visualSize + 'px'; els.cursor.style.height = visualSize + 'px';
+}
+
+function showCenterPreview(size) {
+    const pxSize = (state.tool === 'analyze' ? size * 2 : size) * state.zoom;
+    els.centerPreview.style.width = pxSize + 'px'; els.centerPreview.style.height = pxSize + 'px';
+    els.centerPreview.setAttribute('data-val', Math.round(size) + 'px');
+    els.centerPreview.classList.add('visible');
+    clearTimeout(previewTimeout); previewTimeout = setTimeout(() => els.centerPreview.classList.remove('visible'), 800);
+}
+
+function flashCursor(c) {
+    els.cursor.style.borderColor = c; setTimeout(() => updateCursorSize(), 500);
+}
+
+function saveHistory() {
+    state.history = state.history.slice(0, state.historyStep + 1);
+    state.history.push(els.ctx.getImageData(0,0,els.canvas.width, els.canvas.height));
+    state.historyStep++; if(state.history.length > 20) { state.history.shift(); state.historyStep--; }
+}
+
+function undo(stepBack = true) {
+    if(stepBack && state.historyStep > 0) state.historyStep--;
+    if(state.history[state.historyStep]) els.ctx.putImageData(state.history[state.historyStep], 0, 0);
+}
+
+function clearCanvas() { els.ctx.clearRect(0,0,els.canvas.width, els.canvas.height); saveHistory(); }
+function fitToScreen() {
+    if(!els.canvas.width) return;
+    const cw = els.container.clientWidth; const ch = els.container.clientHeight;
+    const s = Math.min(cw/els.canvas.width, ch/els.canvas.height) * 0.9;
+    state.zoom = s; state.pan.x = (cw-els.canvas.width*s)/2; state.pan.y = (ch-els.canvas.height*s)/2;
+    updateTransform();
+}
+function centerView(w, h) { state.pan.x = (els.container.clientWidth-w)/2; state.pan.y = (els.container.clientHeight-h)/2; updateTransform(); }
+function downloadImage() { const a = document.createElement('a'); a.download='coloring_studio.png'; a.href=els.canvas.toDataURL(); a.click(); }
+
+async function processImage() {
+    if(!state.sourceImg) return;
+    els.processBtn.disabled=true; els.loader.style.display='block'; els.processText.textContent='...';
+    await new Promise(r=>setTimeout(r,50));
+    try {
+        const scale = state.scale;
+        const w = state.sourceImg.width * scale; const h = state.sourceImg.height * scale;
+        const off = document.createElement('canvas'); off.width=w; off.height=h;
+        const oCtx = off.getContext('2d');
+        oCtx.drawImage(state.sourceImg, 0, 0, w, h);
+        if(state.imgBlur > 0) {
+            const br = (state.imgBlur * scale) / 2;
+            const tC = document.createElement('canvas'); tC.width=w; tC.height=h;
+            const tCtx = tC.getContext('2d'); tCtx.filter=`blur(${br}px)`; tCtx.drawImage(off,0,0);
+            oCtx.clearRect(0,0,w,h); oCtx.drawImage(tC,0,0);
+        }
+        const imgData = oCtx.getImageData(0,0,w,h);
+        const data = imgData.data; const th = state.threshold;
+        for(let i=0; i<data.length; i+=4) {
+            const g = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+            if(g < th) { data[i]=0; data[i+1]=0; data[i+2]=0; data[i+3]=255; }
+            else { data[i+3]=0; }
+        }
+        oCtx.putImageData(imgData, 0, 0);
+        resizeCanvas(w, h); els.ctx.drawImage(off,0,0);
+        saveHistory(); fitToScreen(); els.downloadBtn.disabled=false;
+    } catch(e) { console.error(e); }
+    finally { els.processBtn.disabled=false; els.loader.style.display='none'; els.processText.textContent='TRAITER L\'IMAGE'; }
+}
+
+init();
+</script>
+</body>
+</html>
